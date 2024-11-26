@@ -313,34 +313,39 @@ function privateGetScannedDevBySnrHex(stickObj, snrHex) {
 //--------------------------------------------------------------------------------------------------
 function privateFinishScannedDevices(stickObj, options) {
     function sortCompareFunction(a, b) {
-        as = a.type + (100000000 + a.snr) // snr 8 Stellen;
-        bs = b.type + (100000000 + b.snr);
-        ret = as > bs ? 1 : (as < bs ? -1 : 0);
-        return ret;
+        const as = a.type + (100000000 + a.snr); // snr 8 Stellen;
+        const bs = b.type + (100000000 + b.snr);
+        return as > bs ? 1 : (as < bs ? -1 : 0);
     }
 
-    stickObj.scannedDevArray = [];
-    for (var deviceSnr in stickObj.scannedDevUniqueObj) {
-        if (stickObj.scannedDevUniqueObj.hasOwnProperty(deviceSnr)) {
-            stickObj.scannedDevArray.push(stickObj.scannedDevUniqueObj[deviceSnr]);
-        }
-    }
+    // Scanned devices in an array
+    stickObj.scannedDevArray = Object.values(stickObj.scannedDevUniqueObj);
     stickObj.scannedDevArray.sort(sortCompareFunction);
-    log.debug(stickObj.name + " privateFinishScannedDevices: Scanned " + stickObj.scannedDevArray.length + " devices.");
 
-    if (options) {
-        if (options.autoAssignBlinds) {
-            log.info(stickObj.name + " Assign scanned blinds to stick.");
+    log.debug(`${stickObj.name} privateFinishScannedDevices: Scanned ${stickObj.scannedDevArray.length} devices.`);
 
-            stickObj.vnBlinds = [];
-            stickObj.scannedDevArray.forEach(function (device, index) {
-                if ((device.type === '20') || (device.type === '21') || (device.type === '24') || (device.type === '25') || (device.type === '28') || (device.type === '2A')) {
-                    stickObj.vnBlindAdd(device.snr, device.typeStr.trim() + " " + device.snr + " (" + device.snrHex + ")");
-                    log.info(stickObj.name + "   Added " + device.typeStr.trim() + " " + device.snr + " (" + device.snrHex + ")");
-                }
-            });
-        }
+    if (options?.autoAssignBlinds) {
+        log.info(`${stickObj.name} Assign scanned blinds to stick.`);
+
+        stickObj.vnBlinds = [];
+        const validDeviceTypes = ['20', '21', '24', '25', '28', '2A'];
+
+        stickObj.scannedDevArray.forEach(device => {
+            if (validDeviceTypes.includes(device.type)) {
+                const deviceDescription = `${device.typeStr.trim()} ${device.snr} (${device.snrHex})`;
+                stickObj.vnBlindAdd(device.snr, deviceDescription);
+                log.info(`${stickObj.name}   Added ${deviceDescription}`);
+            }
+        });
     }
+
+    // Copy statistics and clean up
+    privateCopyWmsStatistics(stickObj, stickObj.backupStatistics);
+    stickObj.backupStatistics = undefined;
+    stickObj.scanInProgress = undefined;
+    stickObj.callback(undefined, { topic: "wms-vb-scanned-devices", payload: { devices: stickObj.scannedDevArray } });
+}
+
 
     privateCopyWmsStatistics(stickObj, stickObj.backupStatistics);
     stickObj.backupStatistics = undefined;
