@@ -5,9 +5,9 @@
     "build": "docker buildx build --tag wms2mqtt:latest --platform linux/amd64,linux/arm64,linux/arm/v7 -f Dockerfile ."
   },
   "dependencies": {
-    "@serialport/parser-delimiter": "^12.0.0",
+    "@serialport/parser-delimiter": "^13.0.0",
     "mqtt": "^4.2.6",
-    "serialport": "^12.0.0",
+    "serialport": "^13.0.0",
     "winston": "^3.8.2"
   },
   "devDependencies": {
