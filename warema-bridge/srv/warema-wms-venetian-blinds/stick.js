@@ -467,6 +467,7 @@ class Stick {
             this.comDataSendCallback = comDataSendCallback; // function ( string );
         }
         this.vnBlinds = [];
+        this.jogTimers = {}; // snr -> setInterval handle for an active dead-man jog (see vnBlindJogStart)
         this.wmsMsgQueue = [];
         this.currentWmsMsg = undefined;
         this.currentTimeout = undefined;
@@ -858,6 +859,54 @@ class Stick {
     // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
     setCmdConfirmationNotificationEnabled(enabled) {
         this.enableCmdConfirmationNotification = !!enabled
+    }
+
+    // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+    // JOG (hold-to-run) drive. Streams the jog frame every intervalMsec until vnBlindJogStop is
+    // called. Unlike vnBlindSetPosition (absolute blindMoveToPos), jog is NOT gated by transmitter
+    // enrollment, so it drives an actuator even when this stick only holds the network key (read
+    // access) and absolute moves are refused. direction 'up'|'down' -> WMS sub-cmds 07/06; the
+    // physical sense depends on the motor's install side. See https://github.com/vyakunin/warema-wms-jog
+    // SAFETY: jog enforces no soft limit here. An awning's extend/out direction may have NO hard
+    // stop (fabric runs out) - the CALLER must bound run time and/or poll position and stop in time.
+    vnBlindJogStart(id, direction = 'up', intervalMsec = 140) {
+        log.info("vnBlindJogStart( (" + (typeof id) + ") \"" + id + "\", " + direction + " )");
+        var stickObj = this;
+        var blind = stickObj.vnBlindGet(id);
+        if (!blind) {
+            log.W("vnBlindJogStart: Cannot find blind \"" + id + "\".");
+            return;
+        }
+        if (stickObj.jogTimers[blind.snr]) {
+            clearInterval(stickObj.jogTimers[blind.snr]);
+        }
+        var dir = (direction === 'down') ? 'down' : 'up';
+        function sendOneJogFrame() {
+            privateCmdQueueEnqueue(stickObj, new wmsUtil.wmsMsgNew("blindJog", blind.snr, {dir: dir}), privateHandleWmsCompletionGeneric);
+            setTimeout(function () {
+                privateCmdQueueProcess(stickObj);
+            }, DELAY_MSG_PROC);
+        }
+        sendOneJogFrame();
+        stickObj.jogTimers[blind.snr] = setInterval(sendOneJogFrame, intervalMsec);
+    }
+
+    // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+    // Stop an active jog: clears the dead-man stream timer and sends blindStopMove (which also reads
+    // back position when getPosOnStop is true).
+    vnBlindJogStop(id, getPosOnStop = true) {
+        log.info("vnBlindJogStop( (" + (typeof id) + ") \"" + id + "\" )");
+        var stickObj = this;
+        var blind = stickObj.vnBlindGet(id);
+        if (!blind) {
+            log.W("vnBlindJogStop: Cannot find blind \"" + id + "\".");
+            return;
+        }
+        if (stickObj.jogTimers[blind.snr]) {
+            clearInterval(stickObj.jogTimers[blind.snr]);
+            delete stickObj.jogTimers[blind.snr];
+        }
+        stickObj.vnBlindStop(blind.snr, getPosOnStop);
     }
 
     // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~

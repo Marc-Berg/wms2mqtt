@@ -96,6 +96,11 @@ function wmsMsgNew(cmd, snr, params) {
                 this.delayAfter = 5;
                 this.retry = 3;
                 break;
+            case "blindJog"      :
+                this.timeout = 200;
+                this.delayAfter = 5;
+                this.retry = -1; // dead-man stream: never wait/retry, the caller re-sends ~7x/s
+                break;
             case "waveRequest"   :
                 this.timeout = 500;
                 this.delayAfter = 300;
@@ -142,6 +147,19 @@ function encodeCmd(cmd, snr, params) {
             ret.cmd = '{R06' + snrHex + "7070" + "01" + "FF" + "FF" + "FFFF00}";
             ret.expect.msgType = "blindMoveToPosResponse";
             ret.expect.snr = snrHex;
+            break;
+        case "blindJog":
+            // Dead-man / hold-to-run drive. Unlike blindMoveToPos (absolute, sub-cmd 03), JOG is NOT
+            // gated by transmitter enrollment: a stick that joined the network (has the key -> can
+            // read positions) but is not enrolled as an authorized transmitter still drives the
+            // actuator by STREAMING this frame ~7x/s and then sending blindStopMove. Sub-cmds 06/07
+            // are the two drive directions; physical up/down depends on the motor's install side
+            // (same caveat as drehrichtung). No response is expected (continuous stream) so the cmd
+            // sets retry = -1 and an empty expect. Verified 2026-06 on a WMS-MM awning whose absolute
+            // moves were protocol-ACKed but dropped. See https://github.com/vyakunin/warema-wms-jog
+            ret.cmd = '{R06' + snrHex + '7070' + (params.dir === 'down' ? '06' : '07') + 'FFFFFFFF}';
+            ret.expect.msgType = "";
+            ret.expect.snr = undefined;
             break;
         case "stickGetName":
             ret.cmd = '{G}';
