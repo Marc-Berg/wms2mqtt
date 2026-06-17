@@ -149,14 +149,16 @@ function encodeCmd(cmd, snr, params) {
             ret.expect.snr = snrHex;
             break;
         case "blindJog":
-            // Dead-man / hold-to-run drive. Unlike blindMoveToPos (absolute, sub-cmd 03), JOG is NOT
-            // gated by transmitter enrollment: a stick that joined the network (has the key -> can
-            // read positions) but is not enrolled as an authorized transmitter still drives the
-            // actuator by STREAMING this frame ~7x/s and then sending blindStopMove. Sub-cmds 06/07
-            // are the two drive directions; physical up/down depends on the motor's install side
-            // (same caveat as drehrichtung). No response is expected (continuous stream) so the cmd
-            // sets retry = -1 and an empty expect. Verified 2026-06 on a WMS-MM awning whose absolute
-            // moves were protocol-ACKed but dropped. See https://github.com/vyakunin/warema-wms-jog
+            // Dead-man / hold-to-run drive, for actuators that ACK absolute blindMoveToPos (sub-cmd
+            // 03) but never execute it — notably awnings, which generally have no intermediate
+            // positioning. JOG drives the motor with the stick's normal network-key access; this is
+            // NOT an auth/enrollment issue (reads and jog both work from the same stick — same
+            // sender/actuator/auth context, only the subcommand differs). Stream this frame ~7x/s
+            // then send blindStopMove. Sub-cmds 06/07 are the two drive directions; physical up/down
+            // depends on the motor's install side (same caveat as drehrichtung). No response is
+            // expected (continuous stream) so the cmd sets retry = -1 and an empty expect. Verified
+            // 2026-06 on a WMS-MM awning whose absolute moves were ACKed but no-op. See
+            // https://github.com/vyakunin/warema-wms-jog
             ret.cmd = '{R06' + snrHex + '7070' + (params.dir === 'down' ? '06' : '07') + 'FFFFFFFF}';
             ret.expect.msgType = "";
             ret.expect.snr = undefined;

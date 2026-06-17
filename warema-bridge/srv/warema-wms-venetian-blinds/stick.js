@@ -863,10 +863,11 @@ class Stick {
 
     // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
     // JOG (hold-to-run) drive. Streams the jog frame every intervalMsec until vnBlindJogStop is
-    // called. Unlike vnBlindSetPosition (absolute blindMoveToPos), jog is NOT gated by transmitter
-    // enrollment, so it drives an actuator even when this stick only holds the network key (read
-    // access) and absolute moves are refused. direction 'up'|'down' -> WMS sub-cmds 07/06; the
-    // physical sense depends on the motor's install side. See https://github.com/vyakunin/warema-wms-jog
+    // called. Use it for actuators that ACK absolute vnBlindSetPosition (blindMoveToPos) but never
+    // move — notably awnings, which generally have no intermediate positioning. Jog drives them
+    // with the stick's normal network-key access (NOT an auth/enrollment issue: reads and jog both
+    // work from the same stick). direction 'up'|'down' -> WMS sub-cmds 07/06; the physical sense
+    // depends on the motor's install side. See https://github.com/vyakunin/warema-wms-jog
     // SAFETY: jog enforces no soft limit here. An awning's extend/out direction may have NO hard
     // stop (fabric runs out) - the CALLER must bound run time and/or poll position and stop in time.
     vnBlindJogStart(id, direction = 'up', intervalMsec = 140) {
