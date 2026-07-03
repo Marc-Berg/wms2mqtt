@@ -57,7 +57,7 @@ MOVING_INTERVAL
 This applies only to covers being opened or closed, for the duration of the operation or until stopped. Set to 0 to disable.
 
 WMS_CHANNEL, WMS_KEY, WMS_PAN_ID
-: Use these parameters to configure the WMS network your devices are connected to. In order to discover the parameters, start the addon with a `PAN_ID` equal to
+: Use these parameters to configure the WMS network your devices are connected to. In order to discover the parameters, start the gateway with a `PAN_ID` equal to
 `FFFF`, and follow the instructions described at the WMS network parameter discovery section ([here](#wms-discovery)).
 
 WMS_SERIAL_PORT
@@ -67,8 +67,8 @@ LOG_LEVEL
 : Default value: `info`. Log level, one of `[error, warn, info , http , verbose , debug , silly]` (in increasing order).
 
 ### <a name="wms-discovery"></a>WMS Network parameters discovery
-In order to control WMS devices, the addon must be configured with the network parameters, which can be discovered through
-a brief process. You can initiate this process by starting the add-on with default parameters, or run it standalone with
+In order to control WMS devices, the gateway must be configured with the network parameters, which can be discovered through
+a brief process. You can initiate this process by starting the gateway with default parameters, or run it standalone with
 a command similar to the following:
 ```shell
 docker run -it -e WMS_PAN_ID=FFFF -e WMS_SERIAL_PORT=/dev/ttyUSB0 wms2mqtt 
