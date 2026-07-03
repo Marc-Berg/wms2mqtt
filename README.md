@@ -1,9 +1,30 @@
-# Bridge wms2mqtt
+# wms2mqtt — Warema WMS to MQTT Gateway
 
-This Bridge allows to control Warema WMS equipment.
-In order to use this bridge you'll need a Warema WMS stick (https://www.warema.com/en/control-systems/radio-systems/supplementary-components/)
+A standalone Docker gateway that connects **Warema WMS (WAREMA Mobile System)** radio-controlled devices to MQTT.
 
-### Configuration
+This allows you to:
+- Discover and monitor Warema WMS devices (venetian blinds, awnings, roller shutters, motors, etc.)
+- Control devices via MQTT commands (open, close, set position, tilt slats)
+- Stream real-time position updates and status to any MQTT broker
+- Integrate into Home Assistant, Node-RED, Tasmota, or any other MQTT-aware system
+
+**Requirements:**
+- Warema WMS Stick (radio transmitter stick) connected via USB — [learn more](https://www.warema.com/en/control-systems/radio-systems/supplementary-components/)
+- MQTT broker (e.g., Mosquitto)
+- Docker
+
+## About this Gateway
+
+**wms2mqtt** evolved from the Home Assistant Warema addon ecosystem but is now a **standalone, protocol-agnostic gateway**. It exposes Warema devices via MQTT, allowing any home automation platform to consume them.
+
+### Background & Credits
+
+This project builds on:
+- **[warema-wms-venetian-blinds](https://www.npmjs.com/package/warema-wms-venetian-blinds)** — The core Node.js library for WMS communication (maintained by `aemm`)
+- **[santam85/addon-warema-wms](https://github.com/santam85/addon-warema-wms)** — The original Home Assistant addon that pioneered Warema WMS integration
+- Custom enhancements for MQTT v5, extended device type support, and weather deduplication
+
+## Configuration
 
 MQTT_SERVER
 : MQTT server url (ie: mqtt://localhost:1883)
@@ -104,7 +125,73 @@ Once you are happy that (most of) your devices are discovered, by pressing the "
 - Press Ctrl-C to stop program.
 --------------------------------------------------------------------------------
 ```
-At this point you have all the configuration needed to setup the addon. You'll need to add these configuration parameters to the
-environment variables. The process for doing so changes depending on how you are running the addon.
+At this point you have all the configuration needed to set up the gateway. Add these configuration parameters as environment variables (see Configuration section above).
 
-You'll have to restart the addon container with the new configuration to reinitialize the WMS stick using the correct parameters. 
+You'll need to restart the container with the new configuration to initialize the WMS stick using the correct parameters. 
+
+## Quick Start
+
+### Docker (recommended)
+
+\\\ash
+docker run -d \
+  -e MQTT_SERVER="mqtt://mosquitto:1883" \
+  -e MQTT_USER="mqtt_user" \
+  -e MQTT_PASSWORD="secret" \
+  -e WMS_CHANNEL=17 \
+  -e WMS_PAN_ID=1A2B \
+  -e WMS_KEY=0123456789ABCDEF0123456789ABCDEF \
+  -e WMS_SERIAL_PORT=/dev/ttyUSB0 \
+  --device /dev/ttyUSB0 \
+  --name wms2mqtt \
+  marc-berg/wms2mqtt:latest
+\\\
+
+### Docker Compose
+
+\\\yaml
+services:
+  wms2mqtt:
+    image: marc-berg/wms2mqtt:latest
+    environment:
+      MQTT_SERVER: mqtt://mosquitto:1883
+      MQTT_USER: mqtt_user
+      MQTT_PASSWORD: secret
+      WMS_CHANNEL: 17
+      WMS_PAN_ID: 1A2B
+      WMS_KEY: 0123456789ABCDEF0123456789ABCDEF
+      WMS_SERIAL_PORT: /dev/ttyUSB0
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+\\\
+
+## Supported Device Types
+
+The gateway discovers and controls the following Warema WMS device types:
+
+| Type | Device |
+|------|--------|
+| 02 | WMS Stick / Software |
+| 06 | Weather Station |
+| 07 | Remote Control (+) |
+| 09 | Web Control Pro |
+| 20 | Plug Receiver |
+| 21 | Actuator UP |
+| 24 | Smart Socket |
+| 25 | Radio Motor |
+| 28 | LED |
+| 2A | LAMAXA L50/60 |
+| 2E | Actuator 230V UP |
+| 63 | Web Control / Weather Station Pro |
+
+For full API and feature documentation, see the upstream [warema-wms-venetian-blinds](https://www.npmjs.com/package/warema-wms-venetian-blinds) package.
+
+## License
+
+MIT
+
+## Related Projects
+
+- **[warema-wms-venetian-blinds](https://www.npmjs.com/package/warema-wms-venetian-blinds)** (npm) — Core WMS communication library
+- **[santam85/addon-warema-wms](https://github.com/santam85/addon-warema-wms)**
+- **[giannello/addon-warema-bridge](https://github.com/giannello/addon-warema-bridge)**

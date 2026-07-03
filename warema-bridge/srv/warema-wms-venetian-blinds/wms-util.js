@@ -1,3 +1,10 @@
+/**
+ * Forked from warema-wms-venetian-blinds@2.0.5 with hardware-specific customizations:
+ * - wmsAngle: 75 → 133 (adapted angle calculation for LAMAXA and custom actuators)
+ * - Device types: Added support for types 28 (LED), 2A (LAMAXA L50/60), 63 (Weather Pro)
+ * See commit 8297c18 for full change history.
+ */
+
 const log = require('../logger.js')
 const wmsAngle = 133;
 
@@ -337,7 +344,6 @@ function decodeStickCmd(rcv) {
                 msgType = 'blindMoveToPos';
                 params.unknown = payload.substr(0, 2);
                 params.position = wmsPosHexToPercent(payload.substr(2, 2));
-				log.info('HexToPercent: ' + (payload.substr(4, 2)) + '!!!!!!!!!!!!');
                 params.angle = wmsAngleHexToPercent(payload.substr(4, 2));
                 params.valance_1 = payload.substr(6, 2);
                 params.valance_2 = payload.substr(8, 2);
@@ -362,14 +368,12 @@ function decodeStickCmd(rcv) {
 
 //--------------------------------------------------------------------------------------------------
 function wmsAngleHexToPercent(angHex) {
-    //return Math.round((parseInt(angHex, 16) - 127) / wmsAngle * 100);
-	return Math.round((parseInt(angHex, 16) - 84) / wmsAngle * 100)
+    return Math.round((parseInt(angHex, 16) - 84) / wmsAngle * 100);
 }
 
 //--------------------------------------------------------------------------------------------------
 function wmsAnglePercentToHex(angPercent) {
-    //return ('0' + (Math.min(Math.max(Math.round(angPercent / 100 * wmsAngle), -100), 100) + 127).toString(16)).substr(-2).toUpperCase();
-	return ('0' + (Math.round(angPercent / 100 * wmsAngle) + 84).toString(16)).substr(-2).toUpperCase()
+    return ('0' + (Math.round(angPercent / 100 * wmsAngle) + 84).toString(16)).substr(-2).toUpperCase();
 }
 
 //--------------------------------------------------------------------------------------------------
