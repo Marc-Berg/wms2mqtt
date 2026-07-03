@@ -133,7 +133,7 @@ You'll need to restart the container with the new configuration to initialize th
 
 ### Docker (recommended)
 
-\\\ash
+```bash
 docker run -d \
   -e MQTT_SERVER="mqtt://mosquitto:1883" \
   -e MQTT_USER="mqtt_user" \
@@ -145,11 +145,11 @@ docker run -d \
   --device /dev/ttyUSB0 \
   --name wms2mqtt \
   marc-berg/wms2mqtt:latest
-\\\
+```
 
 ### Docker Compose
 
-\\\yaml
+```yaml
 services:
   wms2mqtt:
     image: marc-berg/wms2mqtt:latest
@@ -163,7 +163,7 @@ services:
       WMS_SERIAL_PORT: /dev/ttyUSB0
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
-\\\
+```
 
 ## Supported Device Types
 
