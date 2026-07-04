@@ -89,14 +89,25 @@ function privateCmdQueueProcess(stickObj) {
     function cmdQueueTimeoutHdlr() {
         if (stickObj.currentWmsMsg) {
             if (stickObj.currentWmsMsg.retry < 0) {
-                log.info("wmsTimeout " +
-                    stickObj.currentWmsMsg.timeout + " " +
-                    stickObj.currentWmsMsg.msgType + " " +
-                    stickObj.currentWmsMsg.snr + " " +
-                    JSON.stringify(stickObj.currentWmsMsg.stickCmd.cmd) + ".");
-                privateUpdateWmsComStatistics(stickObj, stickObj.currentWmsMsg.snr, "wmsTimeout");
-                if (stickObj.currentWmsMsg.onEnd) {
-                    stickObj.currentWmsMsg.onEnd("timeout", stickObj.currentWmsMsg, null);
+                if (stickObj.currentWmsMsg.msgType === "scanRequest") {
+                    log.debug("wmsScanComplete " +
+                        stickObj.currentWmsMsg.timeout + " " +
+                        stickObj.currentWmsMsg.msgType + " " +
+                        stickObj.currentWmsMsg.snr + " " +
+                        JSON.stringify(stickObj.currentWmsMsg.stickCmd.cmd) + ".");
+                    if (stickObj.currentWmsMsg.onEnd) {
+                        stickObj.currentWmsMsg.onEnd("", stickObj.currentWmsMsg, null);
+                    }
+                } else {
+                    log.info("wmsTimeout " +
+                        stickObj.currentWmsMsg.timeout + " " +
+                        stickObj.currentWmsMsg.msgType + " " +
+                        stickObj.currentWmsMsg.snr + " " +
+                        JSON.stringify(stickObj.currentWmsMsg.stickCmd.cmd) + ".");
+                    privateUpdateWmsComStatistics(stickObj, stickObj.currentWmsMsg.snr, "wmsTimeout");
+                    if (stickObj.currentWmsMsg.onEnd) {
+                        stickObj.currentWmsMsg.onEnd("timeout", stickObj.currentWmsMsg, null);
+                    }
                 }
             } else {
                 log.info("wmsRetry " + stickObj.currentWmsMsg.msgType + " " + stickObj.currentWmsMsg.snr + " " + JSON.stringify(stickObj.currentWmsMsg.stickCmd.cmd) + ".");
@@ -236,6 +247,8 @@ function privateOnWmsMsgRcv(stickObj, wmsMsg) {
             setTimeout(function () {
                 privateCmdQueueProcess(stickObj);
             }, DELAY_MSG_PROC);
+        } else if (wmsMsg.msgType === "clock") {
+            log.silly(stickObj.name + " clock broadcast: " + JSON.stringify(wmsMsg.params));
         } else if ((wmsMsg.msgType != "ack") && (wmsMsg.msgType != "fwd")) {
             log.debug(stickObj.name + " Received unexpected MSG: " + wmsMsg.msgType + " snr=" + wmsMsg.snr);
             if (stickObj.currentWmsMsg != undefined) {
