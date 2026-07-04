@@ -868,6 +868,16 @@ class Stick {
     // with the stick's normal network-key access (NOT an auth/enrollment issue: reads and jog both
     // work from the same stick). direction 'up'|'down' -> WMS sub-cmds 07/06; the physical sense
     // depends on the motor's install side. See https://github.com/vyakunin/warema-wms-jog
+    //
+    // The jog frame is written DIRECTLY to the stick on the dead-man interval, NOT routed through the
+    // FIFO cmd queue. The queue only advances a message on an expected response or a full `timeout`
+    // dwell (see how scanRequest/ack — the other no-response frames — are handled), so streaming jog
+    // through it would (a) throttle the real send rate to `timeout` (200ms) instead of intervalMsec,
+    // spamming a wmsTimeout per frame, and (b) let the queue grow without bound whenever the interval
+    // outpaces the dwell — leaving a backlog of jog frames that keep driving the motor AFTER
+    // vnBlindJogStop (dangerous for a no-hard-stop awning). A direct write is atomic per frame,
+    // matches the intended cadence exactly, queues nothing, and stops the instant the interval is
+    // cleared. The stop command still goes through the FIFO (it wants an ack).
     // SAFETY: jog enforces no soft limit here. An awning's extend/out direction may have NO hard
     // stop (fabric runs out) - the CALLER must bound run time and/or poll position and stop in time.
     vnBlindJogStart(id, direction = 'up', intervalMsec = 140) {
@@ -882,11 +892,11 @@ class Stick {
             clearInterval(stickObj.jogTimers[blind.snr]);
         }
         var dir = (direction === 'down') ? 'down' : 'up';
+        // Encode the jog frame once — snr + direction are fixed for this run.
+        var jogCmd = new wmsUtil.wmsMsgNew("blindJog", blind.snr, {dir: dir}).stickCmd.cmd;
         function sendOneJogFrame() {
-            privateCmdQueueEnqueue(stickObj, new wmsUtil.wmsMsgNew("blindJog", blind.snr, {dir: dir}), privateHandleWmsCompletionGeneric);
-            setTimeout(function () {
-                privateCmdQueueProcess(stickObj);
-            }, DELAY_MSG_PROC);
+            log.silly("vnBlindJog stream " + blind.snr + " " + JSON.stringify(jogCmd) + ".");
+            stickObj.comDataSendCallback(jogCmd);
         }
         sendOneJogFrame();
         stickObj.jogTimers[blind.snr] = setInterval(sendOneJogFrame, intervalMsec);

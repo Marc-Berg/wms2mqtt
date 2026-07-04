@@ -97,9 +97,12 @@ function wmsMsgNew(cmd, snr, params) {
                 this.retry = 3;
                 break;
             case "blindJog"      :
+                // Jog is written directly to the stick on a dead-man interval, NOT routed through the
+                // cmd queue (see vnBlindJogStart), so these queue fields are unused — only stickCmd.cmd
+                // is consumed. Left as sane defaults for parity with the other command definitions.
                 this.timeout = 200;
                 this.delayAfter = 5;
-                this.retry = -1; // dead-man stream: never wait/retry, the caller re-sends ~7x/s
+                this.retry = -1;
                 break;
             case "waveRequest"   :
                 this.timeout = 500;
