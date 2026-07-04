@@ -480,6 +480,7 @@ class Stick {
             this.comDataSendCallback = comDataSendCallback; // function ( string );
         }
         this.vnBlinds = [];
+        this.jogTimers = {}; // snr -> setInterval handle for an active dead-man jog (see vnBlindJogStart)
         this.wmsMsgQueue = [];
         this.currentWmsMsg = undefined;
         this.currentTimeout = undefined;
@@ -871,6 +872,65 @@ class Stick {
     // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
     setCmdConfirmationNotificationEnabled(enabled) {
         this.enableCmdConfirmationNotification = !!enabled
+    }
+
+    // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+    // JOG (hold-to-run) drive. Streams the jog frame every intervalMsec until vnBlindJogStop is
+    // called. Use it for actuators that ACK absolute vnBlindSetPosition (blindMoveToPos) but never
+    // move — notably awnings, which generally have no intermediate positioning. Jog drives them
+    // with the stick's normal network-key access (NOT an auth/enrollment issue: reads and jog both
+    // work from the same stick). direction 'up'|'down' -> WMS sub-cmds 07/06; the physical sense
+    // depends on the motor's install side. See https://github.com/vyakunin/warema-wms-jog
+    //
+    // The jog frame is written DIRECTLY to the stick on the dead-man interval, NOT routed through the
+    // FIFO cmd queue. The queue only advances a message on an expected response or a full `timeout`
+    // dwell (see how scanRequest/ack — the other no-response frames — are handled), so streaming jog
+    // through it would (a) throttle the real send rate to `timeout` (200ms) instead of intervalMsec,
+    // spamming a wmsTimeout per frame, and (b) let the queue grow without bound whenever the interval
+    // outpaces the dwell — leaving a backlog of jog frames that keep driving the motor AFTER
+    // vnBlindJogStop (dangerous for a no-hard-stop awning). A direct write is atomic per frame,
+    // matches the intended cadence exactly, queues nothing, and stops the instant the interval is
+    // cleared. The stop command still goes through the FIFO (it wants an ack).
+    // SAFETY: jog enforces no soft limit here. An awning's extend/out direction may have NO hard
+    // stop (fabric runs out) - the CALLER must bound run time and/or poll position and stop in time.
+    vnBlindJogStart(id, direction = 'up', intervalMsec = 140) {
+        log.info("vnBlindJogStart( (" + (typeof id) + ") \"" + id + "\", " + direction + " )");
+        var stickObj = this;
+        var blind = stickObj.vnBlindGet(id);
+        if (!blind) {
+            log.W("vnBlindJogStart: Cannot find blind \"" + id + "\".");
+            return;
+        }
+        if (stickObj.jogTimers[blind.snr]) {
+            clearInterval(stickObj.jogTimers[blind.snr]);
+        }
+        var dir = (direction === 'down') ? 'down' : 'up';
+        // Encode the jog frame once — snr + direction are fixed for this run.
+        var jogCmd = new wmsUtil.wmsMsgNew("blindJog", blind.snr, {dir: dir}).stickCmd.cmd;
+        function sendOneJogFrame() {
+            log.silly("vnBlindJog stream " + blind.snr + " " + JSON.stringify(jogCmd) + ".");
+            stickObj.comDataSendCallback(jogCmd);
+        }
+        sendOneJogFrame();
+        stickObj.jogTimers[blind.snr] = setInterval(sendOneJogFrame, intervalMsec);
+    }
+
+    // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+    // Stop an active jog: clears the dead-man stream timer and sends blindStopMove (which also reads
+    // back position when getPosOnStop is true).
+    vnBlindJogStop(id, getPosOnStop = true) {
+        log.info("vnBlindJogStop( (" + (typeof id) + ") \"" + id + "\" )");
+        var stickObj = this;
+        var blind = stickObj.vnBlindGet(id);
+        if (!blind) {
+            log.W("vnBlindJogStop: Cannot find blind \"" + id + "\".");
+            return;
+        }
+        if (stickObj.jogTimers[blind.snr]) {
+            clearInterval(stickObj.jogTimers[blind.snr]);
+            delete stickObj.jogTimers[blind.snr];
+        }
+        stickObj.vnBlindStop(blind.snr, getPosOnStop);
     }
 
     // ~ ~ method ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~

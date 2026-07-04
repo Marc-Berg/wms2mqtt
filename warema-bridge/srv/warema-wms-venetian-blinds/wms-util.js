@@ -103,6 +103,14 @@ function wmsMsgNew(cmd, snr, params) {
                 this.delayAfter = 5;
                 this.retry = 3;
                 break;
+            case "blindJog"      :
+                // Jog is written directly to the stick on a dead-man interval, NOT routed through the
+                // cmd queue (see vnBlindJogStart), so these queue fields are unused — only stickCmd.cmd
+                // is consumed. Left as sane defaults for parity with the other command definitions.
+                this.timeout = 200;
+                this.delayAfter = 5;
+                this.retry = -1;
+                break;
             case "waveRequest"   :
                 this.timeout = 500;
                 this.delayAfter = 300;
@@ -149,6 +157,21 @@ function encodeCmd(cmd, snr, params) {
             ret.cmd = '{R06' + snrHex + "7070" + "01" + "FF" + "FF" + "FFFF00}";
             ret.expect.msgType = "blindMoveToPosResponse";
             ret.expect.snr = snrHex;
+            break;
+        case "blindJog":
+            // Dead-man / hold-to-run drive, for actuators that ACK absolute blindMoveToPos (sub-cmd
+            // 03) but never execute it — notably awnings, which generally have no intermediate
+            // positioning. JOG drives the motor with the stick's normal network-key access; this is
+            // NOT an auth/enrollment issue (reads and jog both work from the same stick — same
+            // sender/actuator/auth context, only the subcommand differs). Stream this frame ~7x/s
+            // then send blindStopMove. Sub-cmds 06/07 are the two drive directions; physical up/down
+            // depends on the motor's install side (same caveat as drehrichtung). No response is
+            // expected (continuous stream) so the cmd sets retry = -1 and an empty expect. Verified
+            // 2026-06 on a WMS-MM awning whose absolute moves were ACKed but no-op. See
+            // https://github.com/vyakunin/warema-wms-jog
+            ret.cmd = '{R06' + snrHex + '7070' + (params.dir === 'down' ? '06' : '07') + 'FFFFFFFF}';
+            ret.expect.msgType = "";
+            ret.expect.snr = undefined;
             break;
         case "stickGetName":
             ret.cmd = '{G}';
