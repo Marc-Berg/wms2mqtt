@@ -89,8 +89,13 @@ function privateCmdQueueProcess(stickObj) {
     function cmdQueueTimeoutHdlr() {
         if (stickObj.currentWmsMsg) {
             if (stickObj.currentWmsMsg.retry < 0) {
-                if (stickObj.currentWmsMsg.msgType === "scanRequest") {
-                    log.debug("wmsScanComplete " +
+                var expectsResponse =
+                    stickObj.currentWmsMsg.stickCmd &&
+                    stickObj.currentWmsMsg.stickCmd.expect &&
+                    stickObj.currentWmsMsg.stickCmd.expect.msgType;
+
+                if (!expectsResponse) {
+                    log.debug("wmsNoResponseComplete " +
                         stickObj.currentWmsMsg.timeout + " " +
                         stickObj.currentWmsMsg.msgType + " " +
                         stickObj.currentWmsMsg.snr + " " +
@@ -247,9 +252,9 @@ function privateOnWmsMsgRcv(stickObj, wmsMsg) {
             setTimeout(function () {
                 privateCmdQueueProcess(stickObj);
             }, DELAY_MSG_PROC);
-        } else if (wmsMsg.msgType === "clock") {
+        } else if ((typeof wmsMsg.msgType === "string") && (wmsMsg.msgType.toLowerCase() === "clock")) {
             log.silly(stickObj.name + " clock broadcast: " + JSON.stringify(wmsMsg.params));
-        } else if ((wmsMsg.msgType != "ack") && (wmsMsg.msgType != "fwd")) {
+        } else if ((wmsMsg.msgType != "ack") && (wmsMsg.msgType != "fwd") && (wmsMsg.msgType != "clock")) {
             log.debug(stickObj.name + " Received unexpected MSG: " + wmsMsg.msgType + " snr=" + wmsMsg.snr);
             if (stickObj.currentWmsMsg != undefined) {
                 log.debug(stickObj.name + "         waiting for MSG: " + stickObj.currentWmsMsg.stickCmd.expect.msgType + " snr=" + stickObj.currentWmsMsg.stickCmd.expect.snr);
