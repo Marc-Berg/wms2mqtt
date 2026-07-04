@@ -150,8 +150,10 @@ function privateCmdQueueProcess(stickObj) {
 function privateHandleWmsCompletionGeneric(error, wmsMsgSent, wmsMsgRcv) {
     if (error) {
         log.debug(wmsMsgSent.stickObj.name + " privateHandleWmsCompletionGeneric " + wmsMsgSent.msgType + " " + wmsMsgSent.snr + " Error: " + error);
-    } else {
+    } else if (wmsMsgRcv && wmsMsgRcv.msgType) {
         log.silly(wmsMsgSent.stickObj.name + " privateHandleWmsCompletionGeneric: " + wmsMsgSent.msgType + " " + wmsMsgSent.snr + ": " + wmsMsgRcv.msgType);
+    } else {
+        log.silly(wmsMsgSent.stickObj.name + " privateHandleWmsCompletionGeneric: " + wmsMsgSent.msgType + " " + wmsMsgSent.snr + ": <no response>");
     }
 }
 
